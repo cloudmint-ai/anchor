@@ -1,0 +1,10 @@
+[package]
+name = "mockall"
+edition = "2024"
+version = "0.13.1"
+
+[dependencies]
+mockall = "0.13.1"
+
+[lib]
+path = "lib.rs"

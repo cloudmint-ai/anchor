@@ -1,0 +1,10 @@
+[package]
+name = "serde"
+edition = "2024"
+version = "1.0.219"
+
+[dependencies]
+serde = { version = "1.0.219", features = ["derive"] }
+
+[lib]
+path = "lib.rs"

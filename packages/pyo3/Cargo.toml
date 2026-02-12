@@ -1,0 +1,10 @@
+[package]
+name = "pyo3"
+edition = "2024"
+version = "0.24.1"
+
+[dependencies]
+pyo3 = { version = "0.24.1", features = ["extension-module"] }
+
+[lib]
+path = "lib.rs"

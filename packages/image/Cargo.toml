@@ -1,0 +1,10 @@
+[package]
+name = "image"
+edition = "2024"
+version = "0.25.8"
+
+[dependencies]
+image = { version = "0.25.8", features = ["png", "jpeg"] }
+
+[lib]
+path = "lib.rs"

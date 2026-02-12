@@ -1,0 +1,10 @@
+[package]
+name = "wasm-bindgen"
+edition = "2024"
+version = "0.2.103"
+
+[dependencies]
+wasm-bindgen = { version = "0.2.103" }
+
+[lib]
+path = "lib.rs"

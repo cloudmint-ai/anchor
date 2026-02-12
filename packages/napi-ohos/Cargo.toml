@@ -1,0 +1,11 @@
+[package]
+name = "napi-ohos"
+edition = "2024"
+version = "1.0.4"
+
+[dependencies]
+# TODO 跟进napi 版本，设置 napi8 的原因是 鸿蒙没有支持更高等级的api
+napi-ohos = { version = "1.0.4", features = ["async", "napi8"] }
+
+[lib]
+path = "lib.rs"

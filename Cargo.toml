@@ -1,0 +1,117 @@
+[package]
+name = "anchor"
+edition = "2024"
+exclude = ["tests/*"]
+
+[workspace]
+members = [
+    ".",
+    "macros",
+    "packages/serde",
+    "packages/strum",
+    "packages/wasm-bindgen",
+    "packages/wasm-bindgen-test",
+    "packages/mockall",
+    "packages/pyo3",
+    "packages/sqlx",
+    "packages/napi-ohos",
+    "packages/napi-derive-ohos",
+    "packages/image",
+]
+
+[dependencies]
+macros = { path = "macros" }
+serde = { path = "packages/serde" }
+strum = { path = "packages/strum" }
+mockall = { path = "packages/mockall" }
+
+pyo3 = { path = "packages/pyo3", optional = true }
+
+hex = "0.4.3"
+num-bigint = "0.4.6"
+tracing = "0.1"
+tracing-appender = "0.2"
+async-trait = "0.1"
+yasna = { version = "0.5.2", features = ["num-bigint"] }
+base64 = "0.22.1"
+rust_decimal = { version = "1.37.0", features = ["maths"] }
+serde_json = "1.0"
+toml = "0.8"
+chrono = "0.4"
+rand = "0.8.1"
+regex = "1.5"
+
+sm2 = "0.13.0"
+sm3 = "0.4.2"
+getrandom = { version = "0.2.15" }
+rand_core = { version = "0.6.4" }
+
+tokio = { version = "1.44.2", features = ["full"], optional = true }
+futures = { version = "0.3", optional = true }
+
+reqwest = { version = "0.12.15", features = [
+    "json",
+    "stream",
+    "blocking",
+    "cookies",
+    "multipart",
+    "gzip",
+], optional = true }
+axum = { version = "0.8.3", optional = true }
+tower-service = { version = "0.3.3", optional = true }
+tower-http = { version = "0.6.2", features = [
+    "compression-gzip",
+    "fs",
+    "cors",
+], optional = true }
+
+sqlx = { path = "packages/sqlx", optional = true }
+
+wasm-bindgen = { path = "packages/wasm-bindgen", optional = true }
+tracing-wasm = { version = "0.2", optional = true }
+tracing-subscriber = { version = "0.3", features = [
+    "env-filter",
+], optional = true }
+serde-wasm-bindgen = { version = "0.6.5", optional = true }
+
+napi-derive-ohos = { path = "packages/napi-derive-ohos", optional = true }
+napi-ohos = { path = "packages/napi-ohos", optional = true }
+
+# 使用 target_arch 区分 wasm32 与否，引入测试时 wasm-pack test 所需依赖
+[target.'cfg(target_arch = "wasm32")'.dev-dependencies]
+wasm-bindgen-test = { path = "packages/wasm-bindgen-test" }
+
+
+[features]
+# insecure 标记非安全生产环境，环境内不应有重要逻辑
+insecure = []
+
+test = []
+
+runtime = ["tokio", "tracing-subscriber", "macros/runtime", "futures"]
+
+wasm = [
+    "reqwest",
+    "getrandom/js",
+    "wasm-bindgen",
+    "tracing-subscriber",
+    "tracing-wasm",
+    "serde-wasm-bindgen",
+] # 预期 wasm feature 总用于 wasm target
+
+napi = ["runtime", "napi-ohos", "napi-derive-ohos"]
+
+python = ["pyo3"]
+
+# api 指提供 api 服务的相关逻辑，未必是云端
+api = [
+    "sqlx",
+    "reqwest",
+    "runtime",
+    "macros/api",
+    "axum",
+    "tower-service",
+    "tower-http",
+]
+
+cloud = ["api", "sqlx/postgres"]

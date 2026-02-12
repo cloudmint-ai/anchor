@@ -1,0 +1,14 @@
+[package]
+name = "sqlx"
+edition = "2024"
+version = "0.8.3"
+
+[dependencies]
+sqlx = { version = "0.8.3", features = ["runtime-tokio-native-tls"] }
+
+[lib]
+path = "lib.rs"
+
+[features]
+postgres = ["sqlx/postgres"]
+sqlite = ["sqlx/sqlite"]
