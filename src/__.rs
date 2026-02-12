@@ -1,9 +1,12 @@
 // TODO 按需在__ 下放置额外的架构目录，如 engine 啥的
 
 // __ 内的逻辑 仅由架构宏引入
-#[cfg(any(feature = "runtime", feature = "wasm"))]
+#[cfg(any(feature = "async", feature = "wasm"))]
 mod init;
-#[cfg(any(feature = "runtime", feature = "wasm"))]
+#[cfg(feature = "async")]
+mod supply_async;
+
+#[cfg(not(feature = "async"))]
 mod supply;
 
 pub mod config;

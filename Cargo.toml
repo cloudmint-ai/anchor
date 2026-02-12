@@ -86,7 +86,7 @@ wasm-bindgen-test = { path = "packages/wasm-bindgen-test" }
 # insecure 标记非安全生产环境，环境内不应有重要逻辑
 insecure = []
 
-runtime = ["tokio", "tracing-subscriber", "macros/runtime", "futures"]
+async = ["tokio", "tracing-subscriber", "macros/async", "futures"]
 
 wasm = [
     "reqwest",
@@ -97,7 +97,7 @@ wasm = [
     "serde-wasm-bindgen",
 ] # 预期 wasm feature 总用于 wasm target
 
-napi = ["runtime", "napi-ohos", "napi-derive-ohos"]
+napi = ["async", "napi-ohos", "napi-derive-ohos"]
 
 python = ["pyo3"]
 
@@ -105,7 +105,7 @@ python = ["pyo3"]
 api = [
     "sqlx",
     "reqwest",
-    "runtime",
+    "async",
     "macros/api",
     "axum",
     "tower-service",

@@ -1,9 +1,9 @@
-#[cfg(feature = "runtime")]
+#[cfg(feature = "async")]
 mod utils;
-#[cfg(feature = "runtime")]
+#[cfg(feature = "async")]
 pub use utils::*;
 
-#[cfg(feature = "runtime")]
+#[cfg(feature = "async")]
 pub use crate::{test_path as path, test_read as read};
 
 mod init;
@@ -25,11 +25,11 @@ mod api;
 #[cfg(feature = "api")]
 pub use api::*;
 
-#[cfg(feature = "runtime")]
+#[cfg(feature = "async")]
 mod table;
-#[cfg(feature = "runtime")]
+#[cfg(feature = "async")]
 pub use crate::test_table as table;
-#[cfg(feature = "runtime")]
+#[cfg(feature = "async")]
 pub use table::*;
 
 pub use mockall::predicate::*;

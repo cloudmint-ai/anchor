@@ -84,7 +84,7 @@ tests! {
         init_config!(Root { ..default!() })
     }
 
-    #[cfg(feature = "runtime")]
+    #[cfg(feature = "async")]
     async fn test_config_from_sample() {
         let toml_str = fs::read_to_string("src/__/config/config.toml.sample").await?;
         let config: Root = toml::from_str(&toml_str)?;

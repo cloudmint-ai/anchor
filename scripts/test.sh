@@ -12,7 +12,7 @@ echo "\n>\n test --features=python \n>\n"
 cargo test --features=python
 echo "\n>\n test --features=napi \n>\n"
 cargo test --features=napi
-echo "\n>\n test --features=runtime \n>\n"
-cargo test --features=runtime
+echo "\n>\n test --features=async \n>\n"
+cargo test --features=async
 echo "\n>\n test --features=wasm \n>\n"
 wasm-pack test --node --features=wasm && wasm-pack test --node --features=insecure,wasm

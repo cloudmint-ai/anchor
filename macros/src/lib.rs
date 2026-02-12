@@ -1,8 +1,8 @@
 use proc_macro::TokenStream;
 use quote::{ToTokens, quote};
 use syn::{
-    Data, DeriveInput, Fields, Item, ItemFn, ItemImpl, ItemMod, ItemStruct, ItemTrait, ReturnType,
-    TraitBound, TypeParamBound, Visibility, parse_macro_input, parse_quote,
+    Data, DeriveInput, Fields, Item, ItemFn, ItemMod, ItemStruct, ItemTrait, ReturnType,
+    TraitBound, TypeParamBound, Visibility, parse_macro_input, parse_quote, parse_str,
 };
 
 #[proc_macro_attribute]
@@ -26,7 +26,7 @@ fn process_test_item_prepend(item: &mut Item) -> Result<(), syn::Error> {
             let func_name = func.sig.ident.to_string();
 
             if func_name.starts_with("test_") {
-                let test_attr = syn::parse_quote! { #[test::case] };
+                let test_attr = parse_quote! { #[test::case] };
                 for attr in &func.attrs {
                     if attr.path().to_token_stream().to_string().contains("case") {
                         return Err(syn::Error::new_spanned(
@@ -110,7 +110,7 @@ pub fn case(_attr: TokenStream, item: TokenStream) -> TokenStream {
     result.into()
 }
 
-#[cfg(feature = "runtime")]
+#[cfg(feature = "async")]
 #[proc_macro_attribute]
 pub fn main(_attr: TokenStream, item: TokenStream) -> TokenStream {
     let input = parse_macro_input!(item as ItemFn);
@@ -143,7 +143,7 @@ pub fn main(_attr: TokenStream, item: TokenStream) -> TokenStream {
 #[cfg(feature = "api")]
 #[proc_macro_derive(Protocol)]
 pub fn protocol_derive(input: TokenStream) -> TokenStream {
-    let input = parse_macro_input!(input as syn::DeriveInput);
+    let input = parse_macro_input!(input as DeriveInput);
     let name = input.ident;
 
     let expanded = quote! {
@@ -155,7 +155,7 @@ pub fn protocol_derive(input: TokenStream) -> TokenStream {
 
 #[proc_macro_derive(Entity)]
 pub fn entity_derive(input: TokenStream) -> TokenStream {
-    let input = parse_macro_input!(input as syn::DeriveInput);
+    let input = parse_macro_input!(input as DeriveInput);
     let name = input.ident;
 
     let expanded = quote! {
@@ -171,7 +171,7 @@ pub fn entity_derive(input: TokenStream) -> TokenStream {
 
 #[proc_macro_derive(Versioned)]
 pub fn versioned_derive(input: TokenStream) -> TokenStream {
-    let input = parse_macro_input!(input as syn::DeriveInput);
+    let input = parse_macro_input!(input as DeriveInput);
     let name = input.ident;
 
     let expanded = quote! {
@@ -253,6 +253,8 @@ fn check_all_fields_public(input: &DeriveInput) {
 // 自动扩展 Engine 的定义与相关初始化函数和必要的框架函数
 // Engine: { supply: Arc<dyn Supply> }
 // Engine 组装是同步的，是否需要异步能力根据实际情况
+// 为了保持 async 和 非 async 时 engine 代码一致，隐去了 async_trait
+#[cfg(feature = "async")]
 #[proc_macro_attribute]
 pub fn engine_for_engine(_args: TokenStream, input: TokenStream) -> TokenStream {
     let input_trait = parse_macro_input!(input as ItemTrait);
@@ -304,10 +306,55 @@ pub fn engine_for_engine(_args: TokenStream, input: TokenStream) -> TokenStream 
     })
 }
 
-fn add_send_sync_bounds_and_health(trait_item: &mut ItemTrait) {
+#[cfg(not(feature = "async"))]
+#[proc_macro_attribute]
+pub fn engine_for_engine(_args: TokenStream, input: TokenStream) -> TokenStream {
+    let input_trait = parse_macro_input!(input as ItemTrait);
+
+    if input_trait.ident.to_string() != "Supply" {
+        return syn::Error::new_spanned(&input_trait.ident, "Trait name should be Supply")
+            .to_compile_error()
+            .into();
+    }
+
+    let mut new_trait = input_trait.clone();
+    add_send_sync_bounds(&mut new_trait);
+
+    // TODO 检查 trait 是否是pub
+
+    TokenStream::from(quote! {
+        #[cfg_attr(test, automock)]
+        #new_trait
+
+        #[derive(Clone)]
+        pub struct Engine {
+            supply: Arc<dyn Supply>,
+        }
+
+        impl Engine {
+            pub fn new(supply: Arc<dyn Supply>) -> Self {
+                Self { supply }
+            }
+        }
+
+        #[cfg(test)]
+        impl Engine {
+            pub fn mock<F>(setup: F) -> Self
+            where
+                F: FnOnce(&mut MockSupply),
+            {
+                let mut supply = MockSupply::new();
+                setup(&mut supply);
+                Engine::new(Arc::new(supply))
+            }
+        }
+    })
+}
+
+fn add_send_sync_bounds(trait_item: &mut ItemTrait) {
     // 创建 Send bound
-    let send_bound = syn::parse_str::<TraitBound>("Send").unwrap();
-    let sync_bound = syn::parse_str::<TraitBound>("Sync").unwrap();
+    let send_bound = parse_str::<TraitBound>("Send").unwrap();
+    let sync_bound = parse_str::<TraitBound>("Sync").unwrap();
 
     // 添加到 supertraits
     trait_item
@@ -316,6 +363,11 @@ fn add_send_sync_bounds_and_health(trait_item: &mut ItemTrait) {
     trait_item
         .supertraits
         .push(TypeParamBound::Trait(sync_bound));
+}
+
+#[cfg(feature = "async")]
+fn add_send_sync_bounds_and_health(trait_item: &mut ItemTrait) {
+    add_send_sync_bounds(trait_item);
 
     trait_item.items.push(parse_quote! {
         async fn health(&self) -> Result<()>;
@@ -329,7 +381,6 @@ pub fn engine_for_runtime(_args: TokenStream, input: TokenStream) -> TokenStream
 
     match input {
         Item::Struct(item_struct) => _engine_for_runtime_struct(item_struct),
-        Item::Impl(item_impl) => _engine_for_runtime_engine_impl(item_impl),
         _ => {
             return syn::Error::new_spanned(&input, "input type not supported")
                 .to_compile_error()
@@ -338,6 +389,7 @@ pub fn engine_for_runtime(_args: TokenStream, input: TokenStream) -> TokenStream
     }
 }
 
+#[cfg(feature = "async")]
 fn _engine_for_runtime_struct(input: ItemStruct) -> TokenStream {
     // TODO it doesnt work in VSCODE
     // let file_path = Span::call_site().file();
@@ -348,29 +400,44 @@ fn _engine_for_runtime_struct(input: ItemStruct) -> TokenStream {
     // let engine_ident = Ident::new(engine_name, Span::call_site().into());
     // pub use engine::#engine_ident::*;
 
-    let field_inits = input.fields.iter().map(|field| {
-        let field_name = field.ident.as_ref().expect("field_name");
-        quote! {
-            #field_name: supply!()
-        }
-    });
-
+    // TODO 自动supply 再考虑考虑
     // TODO 能自动supply 应该也能自动health
+    // let field_inits = input.fields.iter().map(|field| {
+    //     let field_name = field.ident.as_ref().expect("field_name");
+    //     quote! {
+    //         #field_name: supply!()
+    //     }
+    // });
+    //             EngineSupply{
+    //                 #(#field_inits),*
+    //             })))
+
+    // TODE 检查 EngineSupply 的名字
+
     TokenStream::from(quote! {
+        #[derive(Clone)]
         #input
+        #[async_trait]
         impl Suppliable for Engine {
-            fn supply() -> Result<Self> {
-                Ok(Self::new(Arc::new(EngineSupply{
-                    #(#field_inits),*
-                })))
+            async fn supply() -> Result<Self> {
+                let engine_supply: EngineSupply = supply!();
+                Ok(Self::new(Arc::new(engine_supply)))
             }
         }
     })
 }
 
-fn _engine_for_runtime_engine_impl(input: ItemImpl) -> TokenStream {
+#[cfg(not(feature = "async"))]
+fn _engine_for_runtime_struct(input: ItemStruct) -> TokenStream {
+    // TODE 检查 EngineSupply 的名字
     TokenStream::from(quote! {
-        #[async_trait]
+        #[derive(Clone)]
         #input
+        impl Suppliable for Engine {
+            fn supply() -> Result<Self> {
+                let engine_supply: EngineSupply = supply!();
+                Ok(Self::new(Arc::new(engine_supply)))
+            }
+        }
     })
 }

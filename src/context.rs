@@ -1,7 +1,7 @@
 use crate::*;
 #[cfg(feature = "cloud")]
 use sqlx::{Postgres, Transaction};
-#[cfg(not(feature = "runtime"))]
+#[cfg(not(feature = "async"))]
 use std::sync::Mutex;
 
 pub struct Context {
@@ -26,7 +26,7 @@ pub struct Context {
 impl Clone for Context {
     fn clone(&self) -> Self {
         if self.mocking {
-            #[cfg(feature = "runtime")]
+            #[cfg(feature = "async")]
             match self.mocking_transaction.try_lock() {
                 Ok(mocking_transaction) => {
                     if *mocking_transaction {

@@ -10,7 +10,7 @@ pub const MAX_INSTANCE_ID: i64 = -1 ^ (-1 << INSTANCE_ID_BITS);
 pub const MAX_REGION_ID: i64 = -1 ^ (-1 << REGION_ID_BITS);
 const SEQUENCE_MASK: i64 = -1 ^ (-1 << SEQUENCE_BITS);
 
-#[cfg(feature = "runtime")]
+#[cfg(feature = "async")]
 static ID_GENERATOR: LazyLock<Mutex<SnowflakeGenerator>> = LazyLock::new(|| {
     Mutex::new(SnowflakeGenerator {
         timestamp: time::Timestamp::ZERO,
@@ -21,7 +21,7 @@ static ID_GENERATOR: LazyLock<Mutex<SnowflakeGenerator>> = LazyLock::new(|| {
     })
 });
 
-#[cfg(not(feature = "runtime"))]
+#[cfg(not(feature = "async"))]
 static ID_GENERATOR: LazyLock<std::sync::Mutex<SnowflakeGenerator>> = LazyLock::new(|| {
     std::sync::Mutex::new(SnowflakeGenerator {
         timestamp: time::Timestamp::ZERO,
@@ -65,7 +65,7 @@ impl SnowflakeGenerator {
 }
 
 impl Id {
-    #[cfg(feature = "runtime")]
+    #[cfg(feature = "async")]
     pub async fn init(instance_id: i64, region_id: i64) -> Result<()> {
         if instance_id < 0 || instance_id > MAX_INSTANCE_ID {
             return Unexpected!("instance_id {}", instance_id);
@@ -81,7 +81,7 @@ impl Id {
         Ok(())
     }
 
-    #[cfg(not(feature = "runtime"))]
+    #[cfg(not(feature = "async"))]
     pub fn init(instance_id: i64, region_id: i64) -> Result<()> {
         if instance_id < 0 || instance_id > MAX_INSTANCE_ID {
             return Unexpected!("instance_id {}", instance_id);
@@ -97,19 +97,19 @@ impl Id {
         Ok(())
     }
 
-    #[cfg(feature = "runtime")]
+    #[cfg(feature = "async")]
     pub async fn generate() -> Self {
         Self::from(ID_GENERATOR.lock().await.generate())
     }
 
     //  TODO 如果 wasm 支持 async，似乎不再需要同步generate
-    #[cfg(not(feature = "runtime"))]
+    #[cfg(not(feature = "async"))]
     pub fn generate() -> Result<Self> {
         Ok(Self::from(ID_GENERATOR.lock()?.generate()))
     }
 }
 
-#[cfg(feature = "runtime")]
+#[cfg(feature = "async")]
 tests! {
     async fn test_generate_id() {
         Id::init(0, 0).await?;
@@ -136,7 +136,7 @@ tests! {
     }
 }
 
-#[cfg(not(feature = "runtime"))]
+#[cfg(not(feature = "async"))]
 tests! {
     fn test_generate_id() {
         Id::init(0, 0)?;

@@ -198,7 +198,7 @@ fn asn1_encode(bytes: [u8; 64]) -> Result<Vec<u8>> {
     Ok(bytes)
 }
 
-#[cfg(feature = "runtime")]
+#[cfg(feature = "async")]
 tests! {
     fn test_key_pair_match() {
         let private_key =

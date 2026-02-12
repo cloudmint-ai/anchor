@@ -7,24 +7,26 @@ macro_rules! __use_supply_for_runtime {
         use std::any::{Any, TypeId, type_name};
 
         pub static SUPPLIER: LazyLock<Supplier> = LazyLock::new(|| Supplier {
-            suppliables: std::sync::RwLock::new(HashMap::new()),
+            suppliables: RwLock::new(HashMap::new()),
         });
 
+        #[async_trait]
         pub trait Suppliable: Sized + Clone {
-            fn supply() -> Result<Self>;
+            // TODO add health
+            async fn supply() -> Result<Self>;
         }
 
         pub struct Supplier {
-            suppliables: std::sync::RwLock<HashMap<TypeId, Box<dyn Any + Sync + Send>>>,
+            suppliables: RwLock<HashMap<TypeId, Box<dyn Any + Sync + Send>>>,
         }
 
         impl Supplier {
-            pub fn supply<S>(&self) -> Result<S>
+            pub async fn supply<S>(&self) -> Result<S>
             where
                 S: Suppliable + Any + Send + Sync,
             {
                 let type_id = TypeId::of::<S>();
-                if let Some(supply) = self.suppliables.read()?.get(&type_id) {
+                if let Some(supply) = self.suppliables.read().await.get(&type_id) {
                     debug!("using created {}", type_name::<S>());
                     return supply
                         .as_ref()
@@ -33,24 +35,24 @@ macro_rules! __use_supply_for_runtime {
                         .cloned();
                 }
                 debug!("creating {}", type_name::<S>());
-                let supply = S::supply()?;
+                let supply = S::supply().await?;
                 // TODO 这里可以根据anchor 是否有runtime 通过block_on 自动调用health
                 self.suppliables
-                    .write()?
+                    .write().await
                     .insert(type_id, Box::new(supply.clone()));
 
                 debug!("created {}", type_name::<S>());
                 Ok(supply)
             }
 
-            pub fn replace<S>(&self, supply: S) -> Result<()>
+            pub async fn replace<S>(&self, supply: S) -> Result<()>
             where
                 S: Suppliable + Any + Send + Sync + ?Sized,
             {
                 let type_id = TypeId::of::<S>();
                 debug!("replacing {}", type_name::<S>());
                 self.suppliables
-                    .write()?
+                    .write().await
                     .insert(type_id, Box::new(supply));
                 Ok(())
             }
@@ -59,14 +61,14 @@ macro_rules! __use_supply_for_runtime {
         #[macro_export]
         macro_rules! supply {
             () => {
-                SUPPLIER.supply()?
+                SUPPLIER.supply().await?
             };
         }
 
         #[macro_export]
         macro_rules! replace_supply {
             ($e:expr) => {
-                SUPPLIER.replace($e)?
+                SUPPLIER.replace($e).await?
             };
         }
     };
@@ -77,35 +79,40 @@ tests! {
 
     #[__::engine_for_engine]
     pub trait Supply {
-        fn ok(&self);
+        async fn ok(&self);
     }
 
     impl Engine {
-        fn ok(&self) {
-            self.supply.ok();
+        async fn ok(&self) {
+            self.supply.ok().await;
         }
     }
-
     struct SupplyStruct {}
+    #[async_trait]
     impl Supply for SupplyStruct {
-        fn ok(&self) {}
+        async fn health(&self) -> Result<()> {
+            Ok(())
+        }
+        async fn ok(&self) {}
     }
 
+    #[async_trait]
     impl Suppliable for Arc<dyn Supply> {
-        fn supply() -> Result<Self> {
+       async fn supply() -> Result<Self> {
             Ok(Arc::new(SupplyStruct {}))
         }
     }
 
-    impl Suppliable for Arc<Engine> {
-        fn supply() -> Result<Self> {
-            Ok(Arc::new(Engine { supply: supply!() }))
+    #[async_trait]
+    impl Suppliable for Engine {
+       async fn supply() -> Result<Self> {
+            Ok(Engine { supply: supply!() })
         }
     }
 
-    fn test_supply() {
-        let engine: Arc<Engine> = supply!();
-        engine.ok();
+    async fn test_supply() {
+        let engine: Engine = supply!();
+        engine.ok().await;
         replace_supply!(engine);
     }
 }

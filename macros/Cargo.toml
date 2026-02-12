@@ -12,5 +12,5 @@ proc-macro = true
 
 
 [features]
-runtime = []
-api = ["runtime"]
+async = []
+api = ["async"]

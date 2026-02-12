@@ -38,6 +38,8 @@ pub mod time;
 pub use std::time::Duration;
 pub use time::{TimeDelta, TimeElapsed, Timestamp};
 
+/// 使用 async_trait 应该主动使用async feature
+#[cfg(feature = "async")]
 pub use async_trait::async_trait;
 
 pub use std::sync::{Arc, LazyLock, OnceLock};
@@ -64,16 +66,16 @@ pub mod key;
 #[cfg(not(feature = "wasm"))]
 pub use std::env;
 
-#[cfg(feature = "runtime")]
+#[cfg(feature = "async")]
 pub use macros::main;
 // export tokio for macro
-#[cfg(feature = "runtime")]
+#[cfg(feature = "async")]
 pub use tokio;
 
-#[cfg(feature = "runtime")]
+#[cfg(feature = "async")]
 mod runtime;
 
-#[cfg(feature = "runtime")]
+#[cfg(feature = "async")]
 pub use runtime::*;
 
 mod context;

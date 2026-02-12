@@ -172,7 +172,7 @@ macro_rules! test_table {
     };
 }
 
-#[cfg(feature = "runtime")]
+#[cfg(feature = "async")]
 tests! {
     #[derive(Clone, Versioned, Entity)]
     struct Line {

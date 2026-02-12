@@ -1,7 +1,7 @@
 use crate::*;
 use de::{self, Unexpected, Visitor};
 
-#[cfg(not(feature = "runtime"))]
+#[cfg(not(feature = "async"))]
 use std::sync::{
     RwLock,
     atomic::{AtomicI64, Ordering},

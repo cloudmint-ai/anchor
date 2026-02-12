@@ -8,15 +8,11 @@ pub struct Database {
 }
 
 impl Database {
-    // 配合同步依赖注入，使用同步方法进行初始化
-    pub fn new(url: String, max_connections: u32) -> Result<Self> {
-        let runtime = Runtime::new()?;
-        let pool = runtime.block_on(async {
-            PgPoolOptions::new()
-                .max_connections(max_connections)
-                .connect(&url)
-                .await
-        })?;
+    pub async fn new(url: String, max_connections: u32) -> Result<Self> {
+        let pool = PgPoolOptions::new()
+            .max_connections(max_connections)
+            .connect(&url)
+            .await?;
         Ok(Self { _pool: pool })
     }
     pub async fn health(&self) -> Result<()> {
