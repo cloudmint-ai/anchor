@@ -1,3 +1,6 @@
+pub mod __;
+use __::config;
+
 mod result;
 pub use result::*;
 
@@ -7,6 +10,9 @@ pub use strum::EnumIter;
 pub use strum::EnumString;
 pub use strum::IntoEnumIterator;
 
+// TODO rm serde package
+// TODO only use in engine
+pub use serde as _serde;
 pub use serde::*;
 pub use std::fmt;
 
@@ -34,15 +40,12 @@ pub use time::{TimeDelta, TimeElapsed, Timestamp};
 
 pub use async_trait::async_trait;
 
-pub use std::sync::Arc;
-pub use std::sync::LazyLock;
+pub use std::sync::{Arc, LazyLock, OnceLock};
 
 pub use std::borrow::Cow;
 
-mod supply;
-
-#[cfg(any(test, feature = "test"))]
-pub mod test;
+// 由于automock 修饰的代码往往在非tests场景下，故直接暴露
+pub use mockall::automock;
 
 #[cfg(feature = "api")]
 pub mod api;
@@ -56,9 +59,6 @@ pub use reqwest as http;
 #[cfg(feature = "cloud")]
 pub mod database;
 
-#[cfg(any(feature = "runtime", feature = "wasm"))]
-mod init;
-
 pub mod key;
 
 #[cfg(not(feature = "wasm"))]
@@ -71,15 +71,13 @@ pub use macros::main;
 pub use tokio;
 
 #[cfg(feature = "runtime")]
-pub mod runtime;
+mod runtime;
+
+#[cfg(feature = "runtime")]
+pub use runtime::*;
 
 mod context;
 pub use context::{_Transaction, Context};
-
-pub mod _config;
-use _config as config;
-
-pub use mockall::automock;
 
 #[cfg(feature = "napi")]
 pub mod napi;
@@ -117,14 +115,5 @@ macro_rules! hashmap {
 macro_rules! default {
     () => {
         Default::default()
-    };
-}
-
-// TODO 使用扩展让 vscode 对非 mod.rs 自动加上调用
-// TODO 追踪自定义 prelude 的 进展
-#[macro_export]
-macro_rules! __ {
-    () => {
-        use crate::anchor::*;
     };
 }

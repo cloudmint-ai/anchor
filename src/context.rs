@@ -1,6 +1,4 @@
 use crate::*;
-#[cfg(feature = "runtime")]
-use runtime::Mutex;
 #[cfg(feature = "cloud")]
 use sqlx::{Postgres, Transaction};
 #[cfg(not(feature = "runtime"))]
@@ -84,7 +82,7 @@ impl Context {
         Self::new(Self::BACKGROUND_TRACE_ID)
     }
 
-    #[cfg(any(test, feature = "test"))]
+    // TODO 确保只在测试中使用 且名字不那么突兀
     pub fn mocking() -> Self {
         let mut result = Self::new(Self::BACKGROUND_TRACE_ID);
         result.mocking = true;
@@ -102,7 +100,7 @@ impl Context {
         }
     }
 
-    #[cfg(any(test, feature = "test"))]
+    // TODO 确保只在测试中使用 且名字不那么突兀
     pub fn mock_bind_transaction(&self, version_for_transaction: &Version) -> Result<()> {
         if self.mocking == false {
             return Unexpected!("mock_bind_transaction only supported in mocking");
@@ -147,7 +145,7 @@ impl Context {
         Ok(())
     }
 
-    #[cfg(any(test, feature = "test"))]
+    // TODO 确保只在测试中使用 且名字不那么突兀
     pub fn in_mocking_transaction(&self) -> Result<bool> {
         if !self.mocking {
             return Unexpected!("non-mocking context");
@@ -344,7 +342,7 @@ macro_rules! transaction {
         {
             let mut transaction = _Transaction::from_context($context)?;
             let result = { $($body)* };
-           transaction._commit().await?;
+            transaction._commit().await?;
             result
         }
     };

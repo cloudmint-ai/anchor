@@ -251,11 +251,7 @@ where
     q.x <= max(p.x, r.x) && q.x >= min(p.x, r.x) && q.y <= max(p.y, r.y) && q.y >= min(p.y, r.y)
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test::case]
+tests! {
     fn test_contains() {
         let polygon = Polygon::new(vec![
             Point { x: 1, y: 1 },

@@ -97,11 +97,7 @@ impl sqlx::Type<sqlx::Postgres> for Id {
     }
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test::case]
+tests! {
     fn test_id() {
         let id = Id(123);
         assert_eq!(format!("{}", id), "123");

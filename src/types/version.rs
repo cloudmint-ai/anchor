@@ -1,9 +1,6 @@
 use crate::*;
 use de::{self, Unexpected, Visitor};
 
-#[cfg(feature = "runtime")]
-use runtime::{AtomicI64, Ordering, RwLock};
-
 #[cfg(not(feature = "runtime"))]
 use std::sync::{
     RwLock,
@@ -175,11 +172,7 @@ impl sqlx::Type<sqlx::Postgres> for Version {
     }
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test::case]
+tests! {
     fn test_version() {
         let version = Version::from(123);
         assert_eq!(format!("{}", version), "123");

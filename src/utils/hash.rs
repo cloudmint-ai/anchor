@@ -1,3 +1,4 @@
+use crate::*;
 use sm3::{Digest, Sm3};
 
 pub fn hash(message: impl AsRef<[u8]>) -> Vec<u8> {
@@ -6,13 +7,7 @@ pub fn hash(message: impl AsRef<[u8]>) -> Vec<u8> {
     hasher.finalize().to_vec()
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::*;
-    use hex;
-
-    #[test::case]
+tests! {
     fn test_hash() {
         assert_eq!(
             hex::encode(hash(b"hello world")),

@@ -1,3 +1,4 @@
+use crate::*;
 use std::fmt::Debug;
 
 pub trait Signed {}
@@ -163,12 +164,7 @@ pub trait Mean<T> {
     fn round_mean(&self) -> T;
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::*;
-
-    #[test::case]
+tests! {
     fn test_round_div() {
         let mut i: i64;
         i = 6;

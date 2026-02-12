@@ -11,8 +11,8 @@ pub const MAX_REGION_ID: i64 = -1 ^ (-1 << REGION_ID_BITS);
 const SEQUENCE_MASK: i64 = -1 ^ (-1 << SEQUENCE_BITS);
 
 #[cfg(feature = "runtime")]
-static ID_GENERATOR: LazyLock<runtime::Mutex<SnowflakeGenerator>> = LazyLock::new(|| {
-    runtime::Mutex::new(SnowflakeGenerator {
+static ID_GENERATOR: LazyLock<Mutex<SnowflakeGenerator>> = LazyLock::new(|| {
+    Mutex::new(SnowflakeGenerator {
         timestamp: time::Timestamp::ZERO,
         //TODO make it not 0
         instance_id: 0,
@@ -110,11 +110,7 @@ impl Id {
 }
 
 #[cfg(feature = "runtime")]
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test::case]
+tests! {
     async fn test_generate_id() {
         Id::init(0, 0).await?;
 
@@ -141,11 +137,7 @@ mod tests {
 }
 
 #[cfg(not(feature = "runtime"))]
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test::case]
+tests! {
     fn test_generate_id() {
         Id::init(0, 0)?;
 

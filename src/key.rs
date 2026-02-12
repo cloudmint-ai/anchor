@@ -199,11 +199,7 @@ fn asn1_encode(bytes: [u8; 64]) -> Result<Vec<u8>> {
 }
 
 #[cfg(feature = "runtime")]
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test::case]
+tests! {
     fn test_key_pair_match() {
         let private_key =
             PrivateKey::new("b9ab0b828ff68872f21a837fc303668428dea11dcd1b24429d0c99e24eed83d5")?;
@@ -213,7 +209,6 @@ mod tests {
         verify_key_pair_matching(&private_key, &public_key)?;
     }
 
-    #[test::case]
     async fn test_message_verify() {
         let public_key = PublicKey::new(
             "04b9c9a6e04e9c91f7ba880429273747d7ef5ddeb0bb2ff6317eb00bef331a83081a6994b8993f3f5d6eadddb81872266c87c018fb4162f5af347b483e24620207",
@@ -235,7 +230,6 @@ mod tests {
     }
 
     #[cfg(feature = "api")]
-    #[test::case]
     async fn test_decode_signature_len_not_32() {
         let data_bytes =
             br#"{"ProjectID":"123","Timestamp":1727115512682,"RequestID":"493486342907363328"}"#;
@@ -247,7 +241,6 @@ mod tests {
         public_key.verify(data_bytes, &signature_base64)?;
     }
 
-    #[test::case]
     #[ignore]
     fn test_generate_key() {
         let (public_key, private_key) = generate_key()?;

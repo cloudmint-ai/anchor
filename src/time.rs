@@ -274,11 +274,7 @@ pub fn now() -> Timestamp {
     Timestamp::from(js_now() as i64)
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test::case]
+tests! {
     fn test_ms_serde() {
         let now = Timestamp::from(1738825016812);
         let serialized = json::to_string(&now)?;
@@ -296,7 +292,6 @@ mod tests {
         assert_eq!(default, Timestamp::from(1000));
     }
 
-    #[test::case]
     fn test_format() {
         let now = 1738825016812;
         let now_secs = now / 1000;
@@ -325,7 +320,6 @@ mod tests {
         );
     }
 
-    #[test::case]
     fn test_timedelta_from_ns() {
         let duration = Duration::new(5, 730023852);
         assert_eq!(duration.as_millis(), 5730);

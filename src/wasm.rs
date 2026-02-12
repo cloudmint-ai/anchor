@@ -122,12 +122,8 @@ impl Engine {
     }
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-
+tests! {
     #[cfg(not(feature = "insecure"))]
-    #[test::case]
     fn test_engine() {
         test::config!(config::Root{
             wasm: config::Wasm{
@@ -163,7 +159,6 @@ mod tests {
     }
 
     #[cfg(feature = "insecure")]
-    #[test::case]
     fn test_insecure_engine() {
         let engine = Engine::new()?;
         let value = JsValue::from_str("a");

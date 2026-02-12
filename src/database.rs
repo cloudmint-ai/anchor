@@ -8,18 +8,18 @@ pub struct Database {
 }
 
 impl Database {
-    pub async fn new(url: String, max_connections: u32) -> Result<Self> {
-        Ok(Self {
-            _pool: PgPoolOptions::new()
+    // 配合同步依赖注入，使用同步方法进行初始化
+    pub fn new(url: String, max_connections: u32) -> Result<Self> {
+        let runtime = Runtime::new()?;
+        let pool = runtime.block_on(async {
+            PgPoolOptions::new()
                 .max_connections(max_connections)
                 .connect(&url)
-                .await?,
-        })
+                .await
+        })?;
+        Ok(Self { _pool: pool })
     }
-    pub async fn health(&self, context: &Context) -> Result<()> {
-        if context.in_transaction().await? {
-            return Unexpected!("health check in transaction");
-        }
+    pub async fn health(&self) -> Result<()> {
         let one: i64 = sqlx::query_scalar("select 1")
             .fetch_one(&self._pool)
             .await?;

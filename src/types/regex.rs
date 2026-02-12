@@ -1,4 +1,5 @@
-// 使用 regex! 提升初始化性能
+use crate::*;
+/// 使用 regex! 提升初始化性能
 pub use regex::Regex as _Regex;
 
 #[macro_export]
@@ -23,12 +24,7 @@ macro_rules! regex {
     }};
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::*;
-
-    #[test::case]
+tests! {
     fn test_regex() {
         let r = regex!(r"[a-zA-Z']+");
         assert!(r.is_match("aaa"));

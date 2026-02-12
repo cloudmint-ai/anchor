@@ -4,8 +4,6 @@ set -e
 echo "\n>\n fmt && test && build \n>\n"
 cargo fmt && cargo test && cargo build
 
-echo "\n>\n test --features=test \n>\n"
-cargo test --features=test
 echo "\n>\n test --features=api \n>\n"
 cargo test --features=api 
 echo "\n>\n test --features=cloud \n>\n"

@@ -37,11 +37,7 @@ where
     Ok(result)
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test::case]
+tests! {
     fn test_from_empty() {
         let empty: Result<()> = from_str("");
         assert!(empty.is_ok());

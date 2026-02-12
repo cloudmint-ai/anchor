@@ -46,3 +46,17 @@ impl<'a, T> Drop for MutexGuard<'a, T> {
         debug!("unlocked [{:?}]", type_name::<T>());
     }
 }
+
+impl<'a, T> AsRef<T> for MutexGuard<'a, T> {
+    fn as_ref(&self) -> &T {
+        &*self.0
+    }
+}
+impl<'a, T> AsMut<T> for MutexGuard<'a, T>
+where
+    T: AsMut<T>,
+{
+    fn as_mut(&mut self) -> &mut T {
+        &mut *self.0
+    }
+}

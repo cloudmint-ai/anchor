@@ -1,6 +1,5 @@
 use crate::*;
-use runtime::RwLock;
-pub use runtime::io::{AsyncReadExt, AsyncWriteExt, ReadHalf, WriteHalf, split};
+pub use io::{AsyncReadExt, AsyncWriteExt, ReadHalf, WriteHalf, split};
 pub use tokio::net::TcpStream as TokioTcpStream;
 
 #[derive(Debug)]
@@ -82,10 +81,7 @@ impl TcpStream {
     }
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use runtime::{sleep, spawn};
+tests! {
     use tokio::io::{AsyncReadExt, AsyncWriteExt};
     use tokio::net::TcpListener;
 
@@ -122,7 +118,6 @@ mod tests {
         }
     }
 
-    #[test::case]
     #[ignore]
     async fn test_stream_read() {
         test::config!(config::Root { ..default!() });

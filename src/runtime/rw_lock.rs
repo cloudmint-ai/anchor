@@ -61,6 +61,12 @@ impl<'a, T> Deref for RwLockReadGuard<'a, T> {
     }
 }
 
+impl<'a, T> AsRef<T> for RwLockReadGuard<'a, T> {
+    fn as_ref(&self) -> &T {
+        &*self.0
+    }
+}
+
 pub struct RwLockWriteGuard<'a, T>(TokioRwLockWriteGuard<'a, T>);
 
 impl<'a, T> Drop for RwLockWriteGuard<'a, T> {
@@ -77,16 +83,25 @@ impl<'a, T> Deref for RwLockWriteGuard<'a, T> {
     }
 }
 
+impl<'a, T> AsRef<T> for RwLockWriteGuard<'a, T> {
+    fn as_ref(&self) -> &T {
+        &*self.0
+    }
+}
+
 impl<'a, T> DerefMut for RwLockWriteGuard<'a, T> {
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.0
     }
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
+impl<'a, T> AsMut<T> for RwLockWriteGuard<'a, T> {
+    fn as_mut(&mut self) -> &mut T {
+        &mut *self.0
+    }
+}
 
+tests! {
     #[derive(Debug)]
     struct TestStruct {
         i: i64,
@@ -98,7 +113,6 @@ mod tests {
         }
     }
 
-    #[test::case]
     async fn test_rw_lock() {
         let rw_lock = Arc::new(RwLock::new(TestStruct { i: 0 }));
         assert_eq!(rw_lock.read().await.i, 0);

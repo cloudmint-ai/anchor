@@ -1,7 +1,6 @@
 use super::Router;
 use crate::*;
 use axum::serve as axum_serve;
-use runtime::TcpListener;
 
 pub async fn serve(root: Router, host: config::Host) -> Result<()> {
     let listener = TcpListener::bind(host.for_service()?).await?;

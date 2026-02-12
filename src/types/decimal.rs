@@ -535,11 +535,7 @@ macro_rules! dec {
     };
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test::case]
+tests! {
     fn test_decimal() {
         let value = Decimal::try_from("11.22")?;
         let value_string: String = value.into();
