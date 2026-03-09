@@ -32,12 +32,14 @@ pub use crate::ApiUnauthorizedError as UnauthorizedError;
 pub(crate) use axum::{
     extract::Request as HttpRequest,
     handler::Handler,
-    http::header::HeaderValue,
     response::{IntoResponse as IntoHttpResponse, Response as HttpResponse},
     routing::{get, post},
     // TODO 支持正常登陆和内部鉴权
     // TODO recover it routing::{get, get_service, post},
 };
+
+#[cfg(feature = "cloud")]
+pub(crate) use axum::http::header::HeaderValue;
 
 pub use axum::{
     Router,

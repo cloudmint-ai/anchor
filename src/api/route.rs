@@ -1,5 +1,8 @@
-use super::middlewares::trace;
-use super::{Handler, Router, get, middleware, post};
+use super::{Handler, Router, get, post};
+#[cfg(feature = "cloud")]
+use super::{middleware, middlewares::context};
+#[cfg(feature = "cloud")]
+use crate::Database;
 use tower_http::compression::CompressionLayer;
 
 pub struct RouterBuilder<E> {
@@ -53,18 +56,20 @@ where
 //     }
 // }
 
+#[cfg(feature = "cloud")]
 impl<E> RouterBuilder<E>
 where
     E: 'static + Clone + Send + Sync,
 {
     // 所有layer 都需要由 Router 来配置
     // RouterBuilder 保证了先进行 router 配置再进行 layer 配置
-    pub fn with_engine(self, engine: E) -> Router {
+    // TODO rename or add with_database
+    pub fn with_engine_and_database(self, engine: E, database: Database) -> Router {
         // 注意和 root<S> 对照修改，注意 layer 次序从前往后依次从外层到内层
         self.router
             .with_state(engine.clone())
             .layer(CompressionLayer::new())
-            .layer(middleware::from_fn(trace))
+            .layer(middleware::from_fn_with_state(Some(database), context))
     }
 }
 

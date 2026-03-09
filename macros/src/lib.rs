@@ -11,8 +11,13 @@ pub fn cases(_args: TokenStream, input: TokenStream) -> TokenStream {
 
     if let Some((_, ref mut items)) = input_mod.content {
         for item in items {
-            if let Err(err) = process_test_item_prepend(item) {
-                return err.to_compile_error().into();
+            match item {
+                Item::Fn(func) => {
+                    if let Err(err) = process_test_item_prepend(func) {
+                        return err.to_compile_error().into();
+                    }
+                }
+                _ => {}
             }
         }
     }
@@ -20,33 +25,36 @@ pub fn cases(_args: TokenStream, input: TokenStream) -> TokenStream {
     TokenStream::from(quote! { #input_mod })
 }
 
-fn process_test_item_prepend(item: &mut Item) -> Result<(), syn::Error> {
-    match item {
-        Item::Fn(func) => {
-            let func_name = func.sig.ident.to_string();
-
-            if func_name.starts_with("test_") {
-                let test_attr = parse_quote! { #[test::case] };
-                for attr in &func.attrs {
-                    if attr.path().to_token_stream().to_string().contains("case") {
-                        return Err(syn::Error::new_spanned(
-                            attr,
-                            "tests 宏内不再需要手动添加 #[test::case]",
-                        ));
-                    }
-                }
-                if let Some(pos) = func
-                    .attrs
-                    .iter()
-                    .position(|attr| attr.path().is_ident("ignore"))
-                {
-                    func.attrs.insert(pos, test_attr);
-                } else {
-                    func.attrs.push(test_attr);
-                }
-            }
+fn process_test_item_prepend(func: &mut ItemFn) -> Result<(), syn::Error> {
+    let func_name = func.sig.ident.to_string();
+    if !func_name.starts_with("test_") {
+        return Ok(());
+    }
+    for attr in &func.attrs {
+        if attr.path().to_token_stream().to_string().contains("test")
+            || attr.path().to_token_stream().to_string().contains("case")
+        {
+            // VSCode 有未知的重复调用行为，跳过。
+            return Ok(());
+            // return Err(syn::Error::new_spanned(
+            //     attr,
+            //     format!(
+            //         "{}, path {:?} unexpected",
+            //         func_name,
+            //         attr.path().to_token_stream().to_string()
+            //     ), // "tests 宏内不再需要手动添加 #[test::case]",
+            // ));
         }
-        _ => {} // 忽略其他类型的项
+    }
+    let test_attr = parse_quote! {#[test::__::case]};
+    if let Some(pos) = func
+        .attrs
+        .iter()
+        .position(|attr| attr.path().is_ident("ignore"))
+    {
+        func.attrs.insert(pos, test_attr);
+    } else {
+        func.attrs.push(test_attr);
     }
     Ok(())
 }
@@ -76,13 +84,14 @@ pub fn case(_attr: TokenStream, item: TokenStream) -> TokenStream {
     let result = if is_async {
         quote! {
             #[cfg(not(target_arch = "wasm32"))]
-            #[tokio::test(crate = "tokio")]
+            #[test]
             #ignore
-            async fn #fn_name() -> Result<()> {
-                #[cfg(not(test))]
-                compile_error!("unexpected test::case outside cfg(test)");
-                test::init();
-                #fn_block
+            fn #fn_name() -> Result<()> {
+                test::__::init();
+                Runtime::new()?.block_on(async {
+                    #fn_block
+                    Ok::<(), Error>(())
+                })?;
                 Ok(())
             }
         }
@@ -90,9 +99,7 @@ pub fn case(_attr: TokenStream, item: TokenStream) -> TokenStream {
         let body = quote! {
             #ignore
             fn #fn_name() -> Result<()>  {
-                #[cfg(not(test))]
-                compile_error!("unexpected test::case outside cfg(test)");
-                test::init();
+                test::__::init();
                 #fn_block
                 Ok(())
             }
@@ -101,6 +108,7 @@ pub fn case(_attr: TokenStream, item: TokenStream) -> TokenStream {
             #[cfg(not(target_arch = "wasm32"))]
             #[test]
             #body
+
             #[cfg(target_arch = "wasm32")]
             #[wasm_bindgen_test::wasm_bindgen_test]
             #body
@@ -125,7 +133,7 @@ pub fn main(_attr: TokenStream, item: TokenStream) -> TokenStream {
     }
 
     let expanded = quote! {
-        #[tokio::main]
+        #[__::main(crate="__::tokio")]
         async fn #fn_name() -> Result<()> {
             let result: Result<()> = {
                 #fn_block
@@ -177,8 +185,11 @@ pub fn versioned_derive(input: TokenStream) -> TokenStream {
     let expanded = quote! {
         #[async_trait]
         impl Versioned for #name {
-            fn _current_version(&self) -> &Version {
-                &self.version
+            fn _current_version(&self) -> Version {
+                self.version
+            }
+            fn _increase_version(&mut self) {
+                self.version.increase();
             }
         }
     };
@@ -186,7 +197,6 @@ pub fn versioned_derive(input: TokenStream) -> TokenStream {
     TokenStream::from(expanded)
 }
 
-// TODO 不要用下划线表达，而用比如 一个子mod 表达 待引入的内容
 #[proc_macro_attribute]
 pub fn data_for_engine(_args: TokenStream, input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as DeriveInput);
@@ -248,6 +258,52 @@ fn check_all_fields_public(input: &DeriveInput) {
             // 单元结构体没有字段，直接通过
         }
     }
+}
+
+// entity 属性宏，用来标注 entity 对象
+#[proc_macro_attribute]
+pub fn entity_for_engine(_args: TokenStream, input: TokenStream) -> TokenStream {
+    let input = parse_macro_input!(input as DeriveInput);
+
+    let default_derive = match &input.data {
+        Data::Struct(_) => quote! {
+            #[derive(Entity, Debug, Clone)]
+        },
+        Data::Enum(_) => quote! {
+            panic!("unexpected enum {}", &input.ident);
+        },
+        Data::Union(_) => {
+            panic!("unexpected union {}", &input.ident);
+        }
+    };
+
+    TokenStream::from(quote! {
+       #default_derive
+       #input
+    })
+}
+
+// versioned 属性宏，用来标注 最小一致性单元，versioned entity 对象
+#[proc_macro_attribute]
+pub fn versioned_for_engine(_args: TokenStream, input: TokenStream) -> TokenStream {
+    let input = parse_macro_input!(input as DeriveInput);
+
+    let default_derive = match &input.data {
+        Data::Struct(_) => quote! {
+            #[derive(Versioned, Entity, Debug, Clone)]
+        },
+        Data::Enum(_) => quote! {
+            panic!("unexpected enum {}", &input.ident);
+        },
+        Data::Union(_) => {
+            panic!("unexpected union {}", &input.ident);
+        }
+    };
+
+    TokenStream::from(quote! {
+       #default_derive
+       #input
+    })
 }
 
 // 自动扩展 Engine 的定义与相关初始化函数和必要的框架函数

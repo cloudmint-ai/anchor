@@ -1,8 +1,12 @@
 use crate::*;
-use api::{HeaderValue, HttpRequest, HttpResponse, Response, TRACE, middleware::Next};
+use api::{HeaderValue, HttpRequest, HttpResponse, Response, State, TRACE, middleware::Next};
 use tracing::{Instrument, info, info_span};
 
-pub async fn trace(mut request: HttpRequest, next: Next) -> Response<HttpResponse> {
+pub async fn context(
+    State(database): State<Option<Database>>,
+    mut request: HttpRequest,
+    next: Next,
+) -> Response<HttpResponse> {
     let request_time = time::now();
     let request_method = request.method().to_string();
     let request_path = request.uri().path().to_string();
@@ -27,7 +31,9 @@ pub async fn trace(mut request: HttpRequest, next: Next) -> Response<HttpRespons
         );
     });
 
-    request.extensions_mut().insert(Context::new(trace_id));
+    request
+        .extensions_mut()
+        .insert(Context::cloud(trace_id, database));
 
     let mut response = next.run(request).instrument(trace_span.clone()).await;
 

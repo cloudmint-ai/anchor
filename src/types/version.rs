@@ -1,84 +1,50 @@
 use crate::*;
 use de::{self, Unexpected, Visitor};
 
-#[cfg(not(feature = "async"))]
-use std::sync::{
-    RwLock,
-    atomic::{AtomicI64, Ordering},
-};
-
+// TODO 仅在测试框架里自动组装？
 pub trait Versioned: Entity {
     // 仅用于测试框架
-    fn _current_version(&self) -> &Version;
+    fn _current_version(&self) -> Version;
+    // 仅用于测试框架
+    fn _increase_version(&mut self);
 }
 
-#[derive(Clone)]
-pub struct Version {
-    current: Arc<AtomicI64>,
-    rw_lock: Arc<RwLock<i64>>,
-}
+#[derive(Copy, Clone, PartialEq, PartialOrd, Hash, Eq)]
+pub struct Version(i64);
 
 impl Default for Version {
     fn default() -> Self {
-        Self {
-            current: Arc::new(AtomicI64::new(default!())),
-            rw_lock: Arc::new(RwLock::new(default!())),
-        }
+        Self(0)
     }
 }
 
 impl std::fmt::Debug for Version {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", self.into_inner())
+        write!(f, "{}", self.0)
     }
 }
 
 impl std::fmt::Display for Version {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", self.into_inner())
+        write!(f, "{}", self.0)
     }
 }
 
-// 0 表示未锁未存储的内存状态
-// 一旦进入事务加锁，则会自增, 数据库里会从1开始
-// 初始化时 使用 default!() 返回 0
+/// 0 表示未锁未存储的内存状态
+/// 一旦第一次持久化，预期持久化的 version 为 1, 数据库里会从1 开始
+/// 初始化时 使用 default!() 返回 0
+/// 暂定Version 在内存里不应该有变化，在数据库提交后应该重新获取新版本Version
 impl Version {
-    const ORDERING: Ordering = Ordering::SeqCst;
-
-    fn into_inner(&self) -> i64 {
-        self.current.load(Self::ORDERING)
-    }
     fn new(value: i64) -> Self {
-        Self {
-            current: Arc::new(AtomicI64::new(value)),
-            rw_lock: Arc::new(RwLock::new(value)),
-        }
+        Self(value)
     }
-
-    // 仅用于框架
-    pub fn _decrease(&self) -> Result<()> {
-        let mut guard = self.rw_lock.try_write()?;
-        *guard -= 1;
-        self.current.store(*guard, Self::ORDERING);
-        Ok(())
-    }
-
-    // 仅用于框架
-    pub fn _increase(&self) -> Result<()> {
-        let mut guard = self.rw_lock.try_write()?;
-        *guard += 1;
-        self.current.store(*guard, Self::ORDERING);
-        Ok(())
-    }
-
     pub fn is_zero(&self) -> bool {
-        self.into_inner() == 0
+        self.0 == 0
     }
-}
 
-impl PartialEq for Version {
-    fn eq(&self, other: &Self) -> bool {
-        self.into_inner() == other.into_inner()
+    // TODO rm increase
+    pub fn increase(&mut self) {
+        self.0 += 1;
     }
 }
 
@@ -90,13 +56,7 @@ impl From<i64> for Version {
 
 impl From<Version> for i64 {
     fn from(value: Version) -> Self {
-        value.into_inner()
-    }
-}
-
-impl From<&Version> for i64 {
-    fn from(value: &Version) -> Self {
-        value.into_inner()
+        value.0
     }
 }
 
@@ -105,7 +65,7 @@ impl Serialize for Version {
     where
         S: Serializer,
     {
-        serializer.serialize_str(&self.into_inner().to_string())
+        serializer.serialize_str(&self.0.to_string())
     }
 }
 
@@ -160,7 +120,7 @@ impl<'q> sqlx::Encode<'q, sqlx::Postgres> for Version {
         &self,
         buf: &mut <sqlx::Postgres as sqlx::Database>::ArgumentBuffer<'q>,
     ) -> std::result::Result<sqlx::encode::IsNull, sqlx::error::BoxDynError> {
-        <i64 as sqlx::Encode<'_, sqlx::Postgres>>::encode_by_ref(&self.into_inner(), buf)
+        <i64 as sqlx::Encode<'_, sqlx::Postgres>>::encode_by_ref(&self.0, buf)
     }
 }
 
@@ -181,24 +141,13 @@ tests! {
         assert_eq!(serialized, "\"123\"");
 
         let deserialized: Version = json::from_str("\"123\"")?;
-        assert_eq!(i64::from(deserialized), i64::from(&version));
+        assert_eq!(i64::from(deserialized), i64::from(version));
 
         let deserialized: Version = json::from_str("123")?;
-        assert_eq!(i64::from(deserialized), i64::from(&version));
+        assert_eq!(i64::from(deserialized), i64::from(version));
 
         let default_version: Version = default!();
-        assert_eq!(i64::from(&default_version), 0);
-
-        default_version._increase()?;
-        assert_eq!(i64::from(&default_version), 1);
-        default_version._increase()?;
-        assert_eq!(i64::from(&default_version), 2);
-        default_version._increase()?;
-        assert_eq!(default_version, Version::from(3));
-        assert_eq!(i64::from(&default_version), 3);
-
-        let three: i64 = default_version.into();
-        assert_eq!(three, 3);
+        assert_eq!(i64::from(default_version), 0);
 
         let default_version: Version = default!();
         assert!(default_version.is_zero());

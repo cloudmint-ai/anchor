@@ -15,6 +15,7 @@ pub struct EngineErrorResponse {
 }
 
 impl Client {
+    // TODO 传递context，使得verify 不用初始化context
     pub async fn new(host: config::Host) -> Result<Self> {
         let signer = Signer::new()?;
         let api_client = Self {
@@ -85,7 +86,7 @@ impl Client {
         if let config::Host::NotSet = self.host {
             return Unexpected!("host not set");
         }
-        if context.in_transaction().await? {
+        if context.in_transaction().await {
             return Unexpected!("request in transaction");
         }
 
@@ -160,6 +161,9 @@ impl Client {
     }
 
     async fn verify(&self) -> Result<()> {
+        #[cfg(feature = "cloud")]
+        let context = &Context::background(None);
+        #[cfg(not(feature = "cloud"))]
         let context = &Context::background();
         let _: () = self.get(context, "/health", Request::EMPTY).await?;
         let _: () = self

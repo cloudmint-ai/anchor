@@ -1,5 +1,8 @@
 mod authorize;
 pub use authorize::*;
 
-mod trace;
-pub use trace::*;
+// TODO support non-cloud
+#[cfg(feature = "cloud")]
+mod context;
+#[cfg(feature = "cloud")]
+pub use context::*;

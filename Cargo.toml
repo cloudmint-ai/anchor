@@ -112,4 +112,5 @@ api = [
     "tower-http",
 ]
 
+# TODO merge api and cloud 
 cloud = ["api", "sqlx/postgres"]

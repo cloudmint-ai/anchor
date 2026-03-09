@@ -121,22 +121,32 @@ where
             .min_by_key(|value| key_fn(value))
             .cloned())
     }
-    pub fn save(&self, context: &Context, v: &T) -> Result<()> {
-        if !context.in_mocking_transaction()? {
-            return Unexpected!("save outside mocking transaction");
-        }
-        self.0.try_lock()?.insert(v._id(), v.clone());
-        Ok(())
-    }
 }
 
 impl<T> Table<T>
 where
     T: Versioned,
 {
-    pub fn lock(&self, context: &Context, v: &T) -> Result<()> {
-        context.mock_bind_transaction(v._current_version())?;
-        let mut items = self.0.try_lock()?;
+    pub fn save(&self, context: &Context, mut v: T) -> Result<()> {
+        if !context.try_in_transaction()? {
+            return Unexpected!("save out of transaction");
+        }
+        self.verify_version(context, &v)?;
+        v._increase_version();
+        self.0.try_lock()?.insert(v._id(), v);
+        Ok(())
+    }
+    pub fn lock(&self, context: &Context, id: Id) -> Result<T> {
+        if !context.try_in_transaction()? {
+            return Unexpected!("lock outside mocking transaction");
+        }
+        self.0.try_lock()?.get(&id).ok_or_else(none!()).cloned()
+    }
+    pub fn verify_version(&self, context: &Context, v: &T) -> Result<()> {
+        if !context.try_in_transaction()? {
+            return Unexpected!("verify version outside mocking transaction");
+        }
+        let items = self.0.try_lock()?;
         match items.get(&v._id()) {
             Some(item) => {
                 // TODO 隔离版本
@@ -148,8 +158,6 @@ where
                         v._current_version()
                     )
                 } else {
-                    v._current_version()._increase()?;
-                    items.insert(v._id(), v.clone());
                     Ok(())
                 }
             }
@@ -157,8 +165,6 @@ where
                 if !v._current_version().is_zero() {
                     return Unexpected!("unexpected non zero version to create");
                 }
-                v._current_version()._increase()?;
-                items.insert(v._id(), v.clone());
                 Ok(())
             }
         }
@@ -174,7 +180,7 @@ macro_rules! test_table {
 
 #[cfg(feature = "async")]
 tests! {
-    #[derive(Clone, Versioned, Entity)]
+    #[__::versioned_for_engine]
     struct Line {
         pub id: Id,
         pub version: Version,
@@ -191,51 +197,58 @@ tests! {
         };
         let context = &Context::mocking();
         transaction!(context, {
-            table.lock(context, &line)?;
-            let line = table.get(&context, id)?;
-            assert_eq!(line.number, 10);
-            assert_eq!(line.version, Version::from(1));
-            table.save(context, &line)?;
+            table.verify_version(context, &line)?;
+            table.save(context, line)?;
         });
         let line = table.get(&context, id)?;
         assert_eq!(line.number, 10);
         assert_eq!(line.version, Version::from(1));
+        transaction!(context, {
+            table.verify_version(context, &line)?;
+            table.save(context, line)?;
+        });
+        let line = table.get(&context, id)?;
+        assert_eq!(line.number, 10);
+        assert_eq!(line.version, Version::from(2));
         let updated_line = Line {
             id,
-            version: Version::from(1),
+            version: Version::from(2),
             number: 11,
         };
         transaction!(context, {
-            table.lock(&context, &updated_line)?;
-            table.save(&context, &updated_line)?;
+            table.verify_version(&context, &updated_line)?;
+            table.save(&context, updated_line)?;
         });
-        assert_eq!(updated_line.version, Version::from(2));
+        let updated_line = table.get(&context, id)?;
+        assert_eq!(updated_line.version, Version::from(3));
 
         async fn fail_func_on_table(
             context: &Context,
             table: &Table<Line>,
-            line: &Line,
+            line: Line,
         ) -> Result<()> {
             transaction!(context, {
-                table.lock(&context, &line)?;
+                table.verify_version(&context, &line)?;
                 if line.id != Id::from(1111111111) {
                     return Unexpected!("error we set");
                 }
-                table.save(context, &line)?;
+                table.save(context, line)?;
             });
             Ok(())
         }
 
-        if let Ok(_) = fail_func_on_table(context, &table, &updated_line).await {
+        if let Ok(_) = fail_func_on_table(context, &table, updated_line).await {
             panic!("should not ok")
         }
+        let updated_line = table.get(&context, id)?;
         // fail func in transaction should not increase version
-        assert_eq!(updated_line.version, Version::from(2));
-        transaction!(context, {
-            table.lock(&context, &updated_line)?;
-            table.save(&context, &updated_line)?;
-        });
         assert_eq!(updated_line.version, Version::from(3));
+        transaction!(context, {
+            table.verify_version(&context, &updated_line)?;
+            table.save(&context, updated_line)?;
+        });
+        let updated_line = table.get(&context, id)?;
+        assert_eq!(updated_line.version, Version::from(4));
         let search_result = table.filter(&context, |session| session.number > 12)?;
         assert_eq!(search_result.len(), 0);
         let search_result = table.filter_id(&context, |session| session.number > 2)?;
@@ -251,8 +264,8 @@ tests! {
         };
 
         transaction!(context, {
-            table.lock(context, &new_line)?;
-            table.save(context, &new_line)?;
+            table.verify_version(context, &new_line)?;
+            table.save(context, new_line)?;
         });
 
         assert_eq!(table.len()?, 2);

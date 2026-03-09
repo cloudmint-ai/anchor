@@ -57,10 +57,6 @@ pub mod api;
 #[cfg(any(feature = "api", feature = "wasm"))]
 pub use reqwest as http;
 
-// TODO #[cfg(feature = "api")]
-#[cfg(feature = "cloud")]
-pub mod database;
-
 pub mod key;
 
 #[cfg(not(feature = "wasm"))]
@@ -68,18 +64,16 @@ pub use std::env;
 
 #[cfg(feature = "async")]
 pub use macros::main;
-// export tokio for macro
-#[cfg(feature = "async")]
-pub use tokio;
-
 #[cfg(feature = "async")]
 mod runtime;
 
 #[cfg(feature = "async")]
 pub use runtime::*;
 
+#[cfg(feature = "async")]
 mod context;
-pub use context::{_Transaction, Context};
+#[cfg(feature = "async")]
+pub use context::*;
 
 #[cfg(feature = "napi")]
 pub mod napi;

@@ -13,7 +13,13 @@ pub mod config;
 pub mod test;
 
 pub use macros::engine_for_runtime;
-pub use macros::{data_for_engine, engine_for_engine};
+pub use macros::{data_for_engine, engine_for_engine, entity_for_engine, versioned_for_engine};
+
+// 应仅用于宏依赖
+#[cfg(feature = "async")]
+pub use tokio;
+#[cfg(feature = "async")]
+pub use tokio::main;
 
 // TODO 使用扩展让 vscode 对非 mod.rs 自动加上调用
 // TODO 追踪自定义 prelude 的 进展
@@ -25,6 +31,9 @@ macro_rules! __ {
         // TODO engine feature?
         use anchor::__::data_for_engine as data;
         use anchor::__::engine_for_engine as engine;
+        use anchor::__::entity_for_engine as entity;
+        // TODO rm comment
+        // use anchor::__::versioned_for_engine as versioned;
         use anchor::*;
     };
     (runtime) => {
